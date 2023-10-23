@@ -1,24 +1,28 @@
 package com.jbianchini.currency.service
 
+import com.jbianchini.currency.client.CurrencyApiClient
+import com.jbianchini.currency.model.Currency
 import org.springframework.stereotype.Service
-import org.springframework.web.reactive.function.client.WebClient
 import reactor.core.publisher.Mono
 
 @Service
-class CurrencyService {
-    private val url = "https://dolarapi.com/v1/dolares/blue"
+class CurrencyService(
+    private val currencyApiClient: CurrencyApiClient
+) {
+    fun calculateProfit(amount: Double, baseCurrency: Currency, targetCurrency: Currency): Mono<Double> {
+        val baseCurrencyMono = currencyApiClient.getDataFromAPIWebClient(baseCurrency.url)
+        val targetCurrencyMono = currencyApiClient.getDataFromAPIWebClient(targetCurrency.url)
 
-    fun getDataFromAPIWebClient(): String {
-        val webClient = WebClient.create(url)
+        return baseCurrencyMono
+            .zipWith(targetCurrencyMono)
+            .flatMap { tuple ->
+                val baseCurrencyValue = tuple.t1
+                val targetCurrencyValue = tuple.t2
 
-        val responseMono: Mono<String> = webClient
-            .get()
-            .uri("") // Reemplaza con la ruta de la API que deseas consultar
-            .retrieve()
-            .bodyToMono(String::class.java)
-
-        val response = responseMono.block() // Bloquear para obtener el resultado de manera síncrona
-
-        return response ?: "No se pudo obtener datos de la API"
+                val profit = amount / baseCurrencyValue.venta * targetCurrencyValue.compra
+                Mono.just(profit)
+            }
     }
+
+
 }
